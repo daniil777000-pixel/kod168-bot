@@ -7,55 +7,62 @@ from telegram.ext import (
     filters
 )
 
+from sqlalchemy import or_
+import random
+
 from database import get_db
 from models import Client
-import random
 
 
 NAME, PHONE, PHOTO, HAIRCUT, COSMETICS, NOTES = range(6)
 
 
 async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     await update.message.reply_text(
         "👤 Введите имя клиента:"
     )
+
     return NAME
 
 
 async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     context.user_data["name"] = update.message.text
 
     await update.message.reply_text(
-        "📱 Введите номер телефона клиента:"
+        "📞 Введите номер телефона:"
     )
+
     return PHONE
 
 
 async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     context.user_data["phone"] = update.message.text
 
     await update.message.reply_text(
         "📸 Отправьте фото клиента:"
     )
+
     return PHOTO
 
 
 async def get_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    if update.message.photo:
-        context.user_data["photo_id"] = update.message.photo[-1].file_id
-
+    if not update.message.photo:
         await update.message.reply_text(
-            "✂️ Какая любимая стрижка?"
+            "❗ Отправьте именно фото"
         )
+        return PHOTO
 
-        return HAIRCUT
+    context.user_data["photo_id"] = update.message.photo[-1].file_id
 
     await update.message.reply_text(
-        "Нужно отправить именно фото 📸"
+        "✂️ Какая любимая стрижка?"
     )
 
-    return PHOTO
+    return HAIRCUT
 
 
 async def get_haircut(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -63,7 +70,7 @@ async def get_haircut(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["haircut"] = update.message.text
 
     await update.message.reply_text(
-        "🧴 Какая косметика или предпочтения клиента?"
+        "🧴 Какая косметика используется?"
     )
 
     return COSMETICS
@@ -74,7 +81,7 @@ async def get_cosmetics(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["cosmetics"] = update.message.text
 
     await update.message.reply_text(
-        "📝 Заметки мастера:"
+        "📝 Заметка мастера:"
     )
 
     return NOTES
@@ -88,6 +95,7 @@ async def get_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     code = f"KOD168-{random.randint(100000,999999)}"
 
+
     client = Client(
         name=context.user_data["name"],
         phone=context.user_data["phone"],
@@ -95,15 +103,18 @@ async def get_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         client_code=code,
         haircut=context.user_data["haircut"],
         cosmetics=context.user_data["cosmetics"],
-        notes=context.user_data["notes"]
+        notes=context.user_data["notes"],
+        visits=1
     )
+
 
     db.add(client)
     db.commit()
+    db.refresh(client)
 
-    await update.message.reply_text(
-        f"""
-🔥 Клиент KOD 168 создан
+
+    text = f"""
+🔥 НОВЫЙ КЛИЕНТ KOD 168
 
 👤 {client.name}
 
@@ -116,12 +127,105 @@ async def get_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🧴 {client.cosmetics}
 
 📝 {client.notes}
+
+📊 Визитов: {client.visits}
 """
-    )
+
+
+    if client.photo_id:
+
+        await update.message.reply_photo(
+            photo=client.photo_id,
+            caption=text
+        )
+
+    else:
+
+        await update.message.reply_text(
+            text
+        )
+
 
     db.close()
 
     return ConversationHandler.END
+
+
+
+async def find_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "🔍 Использование:\n/find номер телефона или KOD ID"
+        )
+
+        return
+
+
+    search = context.args[0]
+
+    db = get_db()
+
+
+    client = db.query(Client).filter(
+        or_(
+            Client.phone == search,
+            Client.client_code == search
+        )
+    ).first()
+
+
+    if not client:
+
+        await update.message.reply_text(
+            "❌ Клиент не найден"
+        )
+
+        db.close()
+        return
+
+
+
+    text = f"""
+🔥 KOD 168 CLIENT
+
+👤 {client.name}
+
+🆔 {client.client_code}
+
+📞 {client.phone}
+
+✂️ {client.haircut}
+
+🧴 {client.cosmetics}
+
+📝 {client.notes}
+
+📊 Визитов:
+{client.visits}
+
+💰 Потрачено:
+{client.total_money}₽
+"""
+
+
+    if client.photo_id:
+
+        await update.message.reply_photo(
+            photo=client.photo_id,
+            caption=text
+        )
+
+    else:
+
+        await update.message.reply_text(
+            text
+        )
+
+
+    db.close()
+
 
 
 async def clients(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -130,25 +234,36 @@ async def clients(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     users = db.query(Client).all()
 
+
     if not users:
+
         await update.message.reply_text(
-            "👥 Клиентов пока нет."
+            "👥 Клиентов пока нет"
         )
+
         db.close()
         return
 
-    text = "👥 Клиенты KOD 168:\n\n"
 
-    for number, user in enumerate(users, start=1):
+    text = "👥 БАЗА KOD 168\n\n"
+
+
+    for user in users:
+
         text += (
-            f"{number}. {user.name}\n"
+            f"👤 {user.name}\n"
             f"🆔 {user.client_code}\n"
-            f"✂️ {user.haircut}\n\n"
+            f"📞 {user.phone}\n\n"
         )
+
 
     db.close()
 
-    await update.message.reply_text(text)
+
+    await update.message.reply_text(
+        text
+    )
+
 
 
 def get_handlers():
@@ -165,42 +280,42 @@ def get_handlers():
 
             states={
 
-                NAME: [
+                NAME:[
                     MessageHandler(
                         filters.TEXT & ~filters.COMMAND,
                         get_name
                     )
                 ],
 
-                PHONE: [
+                PHONE:[
                     MessageHandler(
                         filters.TEXT & ~filters.COMMAND,
                         get_phone
                     )
                 ],
 
-                PHOTO: [
+                PHOTO:[
                     MessageHandler(
                         filters.PHOTO,
                         get_photo
                     )
                 ],
 
-                HAIRCUT: [
+                HAIRCUT:[
                     MessageHandler(
                         filters.TEXT & ~filters.COMMAND,
                         get_haircut
                     )
                 ],
 
-                COSMETICS: [
+                COSMETICS:[
                     MessageHandler(
                         filters.TEXT & ~filters.COMMAND,
                         get_cosmetics
                     )
                 ],
 
-                NOTES: [
+                NOTES:[
                     MessageHandler(
                         filters.TEXT & ~filters.COMMAND,
                         get_notes
@@ -212,9 +327,16 @@ def get_handlers():
             fallbacks=[]
         ),
 
+
         CommandHandler(
             "clients",
             clients
+        ),
+
+
+        CommandHandler(
+            "find",
+            find_client
         )
 
     ]
