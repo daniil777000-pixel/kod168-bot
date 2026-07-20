@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, DateTime, Text
 from datetime import datetime
 
 from database import Base
@@ -10,51 +9,31 @@ class Client(Base):
 
     id = Column(Integer, primary_key=True)
 
-    name = Column(String(100), nullable=False)
+    # Основная информация
+    name = Column(String, nullable=False)
+    phone = Column(String, unique=True)
 
-    phone = Column(String(30))
+    # Фото клиента Telegram
+    photo_id = Column(String)
 
-    birthday = Column(String(20))
+    # Уникальный код клиента
+    client_code = Column(String, unique=True)
 
-    haircut = Column(String(200))
+    # Данные по стрижке
+    haircut = Column(String)
+    cosmetics = Column(String)
 
+    # Заметки мастера
     notes = Column(Text)
 
-    photo = Column(String(300))
+    # Статистика
+    visits = Column(Integer, default=0)
+    total_money = Column(Integer, default=0)
+
+    # Статус клиента
+    status = Column(String, default="Новый")
 
     created_at = Column(
         DateTime,
         default=datetime.utcnow
-    )
-
-    visits = relationship(
-        "Visit",
-        back_populates="client"
-    )
-
-
-class Visit(Base):
-    __tablename__ = "visits"
-
-    id = Column(Integer, primary_key=True)
-
-    client_id = Column(
-        Integer,
-        ForeignKey("clients.id")
-    )
-
-    service = Column(String(100))
-
-    price = Column(Integer)
-
-    comment = Column(Text)
-
-    date = Column(
-        DateTime,
-        default=datetime.utcnow
-    )
-
-    client = relationship(
-        "Client",
-        back_populates="visits"
     )
