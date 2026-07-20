@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Text
+from sqlalchemy.orm import declarative_base
 from datetime import datetime
-from database import Base  # <--- Base импортируется ИЗ database.py
+
+Base = declarative_base()
 
 class Client(Base):
     __tablename__ = "clients"
@@ -27,3 +29,12 @@ class Visit(Base):
     service = Column(String(100))
     price = Column(Float)
     date = Column(DateTime, default=datetime.utcnow)
+
+class Master(Base):
+    __tablename__ = "masters"
+    
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(Integer, unique=True, nullable=False)
+    name = Column(String(100))
+    is_admin = Column(Integer, default=0)  # 0 = нет, 1 = да
+    created_at = Column(DateTime, default=datetime.utcnow)
