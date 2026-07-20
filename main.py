@@ -1,18 +1,18 @@
 import logging
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
+from telegram.ext import Application
 from config import BOT_TOKEN
-from database import create_tables
+from database import create_tables, Base, engine
 from handlers import client
 
 logging.basicConfig(level=logging.INFO)
 
 def main():
-    create_tables()
+    # Создаём таблицы
+    Base.metadata.create_all(bind=engine)
     print("✅ База данных готова")
     
     app = Application.builder().token(BOT_TOKEN).build()
     
-    # Регистрируем все обработчики из client.py
     for handler in client.get_handlers():
         app.add_handler(handler)
     
