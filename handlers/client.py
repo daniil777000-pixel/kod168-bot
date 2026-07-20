@@ -13,10 +13,11 @@ from models import Client
 import random
 
 
-NAME, PHONE, HAIRCUT, COSMETICS, NOTES = range(5)
+NAME, PHONE, HAIRCUT, COSMETICS, NOTES, PHOTO = range(6)
+SEARCH = range(1)
 
 
-def normalize_phone(phone):
+def normalize_phone(phone: str):
 
     return (
         phone
@@ -24,6 +25,7 @@ def normalize_phone(phone):
         .replace("-", "")
         .replace("(", "")
         .replace(")", "")
+        .replace("+", "")
     )
 
 
@@ -32,10 +34,12 @@ def generate_code():
     return f"KOD168-{random.randint(100000,999999)}"
 
 
-async def add_start(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+
+# =========================
+# ДОБАВЛЕНИЕ КЛИЕНТА
+# =========================
+
+async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "👤 Введите имя клиента:"
@@ -45,10 +49,7 @@ async def add_start(
 
 
 
-async def get_name(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["name"] = update.message.text
 
@@ -60,10 +61,7 @@ async def get_name(
 
 
 
-async def get_phone(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["phone"] = normalize_phone(
         update.message.text
@@ -77,25 +75,19 @@ async def get_phone(
 
 
 
-async def get_haircut(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def get_haircut(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["haircut"] = update.message.text
 
     await update.message.reply_text(
-        "🧴 Какая косметика?"
+        "🧴 Косметика:"
     )
 
     return COSMETICS
 
 
 
-async def get_cosmetics(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def get_cosmetics(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["cosmetics"] = update.message.text
 
@@ -107,42 +99,48 @@ async def get_cosmetics(
 
 
 
-async def get_notes(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def get_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["notes"] = update.message.text
+
+    await update.message.reply_text(
+        "📸 Отправьте фото клиента:"
+    )
+
+    return PHOTO
+
+
+
+async def get_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    photo_id = None
+
+    if update.message.photo:
+        photo_id = update.message.photo[-1].file_id
+
 
     db = get_db()
 
 
     client = Client(
-
         name=context.user_data["name"],
-
         phone=context.user_data["phone"],
-
         haircut=context.user_data["haircut"],
-
         cosmetics=context.user_data["cosmetics"],
-
         notes=context.user_data["notes"],
-
+        photo_id=photo_id,
         client_code=generate_code()
-
     )
 
 
     db.add(client)
-
     db.commit()
-
     db.refresh(client)
 
 
-    text = f"""
-🔥 Клиент KOD 168 создан
+    await update.message.reply_text(
+        f"""
+🔥 Клиент создан
 
 👤 {client.name}
 
@@ -156,39 +154,42 @@ async def get_notes(
 
 📝 {client.notes}
 """
-
-
-    await update.message.reply_text(
-        text
     )
 
 
     db.close()
 
-
     return ConversationHandler.END
 
 
 
-async def find_client(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+# =========================
+# ПОИСК
+# =========================
 
-    query = update.message.text.replace(
-        "/find",
-        ""
-    ).strip()
 
+async def find_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    await update.message.reply_text(
+        "🔍 Введите имя, телефон или KOD ID:"
+    )
+
+    return SEARCH
+
+
+
+async def search_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    query = update.message.text.strip()
 
     db = get_db()
 
 
-    q = normalize_phone(query)
+    phone = normalize_phone(query)
 
 
     client = db.query(Client).filter(
-        (Client.phone == q) |
+        (Client.phone == phone) |
         (Client.name.ilike(f"%{query}%")) |
         (Client.client_code == query)
     ).first()
@@ -201,8 +202,7 @@ async def find_client(
         )
 
         db.close()
-
-        return
+        return ConversationHandler.END
 
 
 
@@ -221,22 +221,31 @@ async def find_client(
 
 📝 {client.notes}
 
-⭐ {client.status}
+⭐ Статус: {client.status}
 
-🔄 Визитов:
-{client.visits}
+🔄 Визитов: {client.visits}
 
-💰 Потрачено:
-{client.total_money} ₽
+💰 Потрачено: {client.total_money} ₽
 """
 
 
-    await update.message.reply_text(
-        text
-    )
+    if client.photo_id:
+
+        await update.message.reply_photo(
+            photo=client.photo_id,
+            caption=text
+        )
+
+    else:
+
+        await update.message.reply_text(
+            text
+        )
 
 
     db.close()
+
+    return ConversationHandler.END
 
 
 
@@ -245,14 +254,11 @@ def get_handlers():
     return [
 
         ConversationHandler(
-
             entry_points=[
-
                 CommandHandler(
                     "add",
                     add_start
                 )
-
             ],
 
             states={
@@ -290,18 +296,41 @@ def get_handlers():
                         filters.TEXT & ~filters.COMMAND,
                         get_notes
                     )
+                ],
+
+                PHOTO:[
+                    MessageHandler(
+                        filters.PHOTO,
+                        get_photo
+                    )
                 ]
 
             },
 
             fallbacks=[]
-
         ),
 
 
-        CommandHandler(
-            "find",
-            find_client
+        ConversationHandler(
+            entry_points=[
+                CommandHandler(
+                    "find",
+                    find_start
+                )
+            ],
+
+            states={
+
+                SEARCH:[
+                    MessageHandler(
+                        filters.TEXT & ~filters.COMMAND,
+                        search_client
+                    )
+                ]
+
+            },
+
+            fallbacks=[]
         )
 
     ]
