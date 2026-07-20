@@ -22,7 +22,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     
-    db = next(get_db())
+    db = get_db()
     master = db.query(Master).filter(Master.telegram_id == user_id).first()
     db.close()
     
@@ -173,7 +173,7 @@ async def add_client_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         context.user_data["client_notes"] = update.message.text
     
-    db = next(get_db())
+    db = get_db()
     client = Client()
     client.name = context.user_data.get("client_name")
     client.phone = context.user_data.get("client_phone")
@@ -208,7 +208,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def clients_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     master_id = context.user_data.get("master_id")
-    db = next(get_db())
+    db = get_db()
     
     query = db.query(Client)
     if master_id:
@@ -239,7 +239,7 @@ async def show_client_card(update: Update, context: ContextTypes.DEFAULT_TYPE, c
             await update.message.reply_text("❌ Укажите имя или KOD ID клиента.\nПример: `/client Александр`", parse_mode="Markdown")
             return
         query = " ".join(args)
-        db = next(get_db())
+        db = get_db()
         client = db.query(Client).filter(
             or_(
                 Client.name.ilike(f"%{query}%"),
@@ -249,7 +249,7 @@ async def show_client_card(update: Update, context: ContextTypes.DEFAULT_TYPE, c
         ).first()
         db.close()
     else:
-        db = next(get_db())
+        db = get_db()
         client = db.query(Client).filter(Client.id == client_id).first()
         db.close()
     
@@ -308,7 +308,7 @@ async def visit_history(update: Update, context: ContextTypes.DEFAULT_TYPE, clie
             await update.message.reply_text("❌ Укажите имя клиента")
             return
         query = " ".join(args)
-        db = next(get_db())
+        db = get_db()
         client = db.query(Client).filter(Client.name.ilike(f"%{query}%")).first()
         db.close()
         if not client:
@@ -316,7 +316,7 @@ async def visit_history(update: Update, context: ContextTypes.DEFAULT_TYPE, clie
             return
         client_id = client.id
     
-    db = next(get_db())
+    db = get_db()
     client = db.query(Client).filter(Client.id == client_id).first()
     visits = db.query(Visit).filter(Visit.client_id == client_id).order_by(Visit.date.desc()).all()
     db.close()
@@ -352,7 +352,7 @@ async def add_visit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def add_visit_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.message.text
-    db = next(get_db())
+    db = get_db()
     client = db.query(Client).filter(
         or_(
             Client.name.ilike(f"%{query}%"),
@@ -397,7 +397,7 @@ async def add_visit_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["visit_comment"] = update.message.text
     
     # Сохраняем визит
-    db = next(get_db())
+    db = get_db()
     visit = Visit()
     visit.client_id = context.user_data["visit_client_id"]
     visit.service = context.user_data["visit_service"]
@@ -462,7 +462,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def statistics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    db = next(get_db())
+    db = get_db()
     master_id = context.user_data.get("master_id")
     
     # Общая статистика
@@ -502,7 +502,7 @@ async def masters_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔️ Недостаточно прав")
         return
     
-    db = next(get_db())
+    db = get_db()
     masters = db.query(Master).all()
     db.close()
     
