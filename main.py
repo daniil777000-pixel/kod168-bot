@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 def run_flask():
     """Запуск Flask сервера для Render"""
     port = int(os.environ.get("PORT", 10000))
-    # Убедись, что app.run вызывается с правильными параметрами
     app.run(host="0.0.0.0", port=port)
 
 def main():
@@ -27,26 +26,26 @@ def main():
     # Создаём таблицы при первом запуске
     create_tables()
     logger.info("✅ База данных инициализирована")
-
+    
     # Запускаем Flask в отдельном потоке
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
     logger.info(f"✅ Flask сервер запущен на порту {os.environ.get('PORT', 10000)}")
-
+    
     # Настраиваем бота
     application = Application.builder().token(BOT_TOKEN).build()
-
+    
     # Добавляем все обработчики
     all_handlers = []
     all_handlers.extend(client.get_handlers())
-    all_handlers.extend(menu.get_handlers())
-
+    all_handlers.extend(menu.get_menu_handlers())  # Исправлено!
+    
     for handler in all_handlers:
         application.add_handler(handler)
-
+    
     logger.info("✅ Все обработчики загружены")
     logger.info("🤖 Бот запущен и готов к работе!")
-
+    
     # Запускаем бота
     application.run_polling(allowed_updates=["message", "callback_query"])
 
