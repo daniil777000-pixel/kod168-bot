@@ -12,8 +12,8 @@ from config import BOT_TOKEN
 from database import engine
 from models import Base
 
-from handlers.client import get_handlers
 from handlers.menu import get_menu_handlers
+from handlers.client import get_handlers
 
 
 logging.basicConfig(
@@ -21,7 +21,6 @@ logging.basicConfig(
 )
 
 
-# Создание таблиц базы
 Base.metadata.create_all(
     bind=engine
 )
@@ -34,20 +33,18 @@ async def start(
 
     await update.message.reply_text(
         "🔥 KOD 168 CRM BOT\n\n"
-        "Добро пожаловать!\n\n"
-        "Используйте меню:\n"
-        "/menu"
+        "Нажмите /menu для открытия панели"
     )
 
 
 def main():
 
-    app = Application.builder() \
-        .token(BOT_TOKEN) \
+    app = Application.builder()\
+        .token(BOT_TOKEN)\
         .build()
 
 
-    # Старт
+    # СТАРТ
     app.add_handler(
         CommandHandler(
             "start",
@@ -56,18 +53,18 @@ def main():
     )
 
 
-    # Клиенты
-    for handler in get_handlers():
-        app.add_handler(handler)
-
-
-    # Меню
+    # СНАЧАЛА МЕНЮ
     for handler in get_menu_handlers():
         app.add_handler(handler)
 
 
+    # ПОТОМ CRM
+    for handler in get_handlers():
+        app.add_handler(handler)
+
+
     print(
-        "🔥 KOD 168 CRM BOT STARTED"
+        "🔥 KOD 168 CRM ONLINE"
     )
 
 
