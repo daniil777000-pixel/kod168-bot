@@ -137,4 +137,4 @@ def get_menu_handlers():
         CallbackQueryHandler(menu_callback, pattern="^menu_"),
         # Обработчик для кнопки "Назад"
         CallbackQueryHandler(back_to_menu, pattern="^back_to_menu$"),
-    ]
+    
