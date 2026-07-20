@@ -1,35 +1,41 @@
-async def get_photo(
+async def search_client(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    photo_id = None
-
-    if update.message.photo:
-        photo_id = update.message.photo[-1].file_id
-
+    query = update.message.text.strip()
 
     db = get_db()
 
-    client = Client(
-        client_code=generate_code(),
-        name=context.user_data["name"],
-        phone=context.user_data["phone"],
-        haircut=context.user_data["haircut"],
-        cosmetics=context.user_data["cosmetics"],
-        notes=context.user_data["notes"],
-        photo_id=photo_id
+    phone = normalize_phone(query)
+
+
+    client = (
+        db.query(Client)
+        .filter(
+            (Client.name.ilike(f"%{query}%"))
+            |
+            (Client.phone.ilike(f"%{phone}%"))
+            |
+            (Client.client_code.ilike(f"%{query}%"))
+        )
+        .first()
     )
 
-    db.add(client)
-    db.commit()
-    db.refresh(client)
 
-    db.close()
+    if not client:
+
+        db.close()
+
+        await update.message.reply_text(
+            "❌ Клиент не найден"
+        )
+
+        return ConversationHandler.END
 
 
     text = f"""
-🔥 Клиент создан
+🔥 KOD 168 CLIENT
 
 👤 {client.name}
 
@@ -40,7 +46,18 @@ async def get_photo(
 ✂️ {client.haircut}
 
 🧴 {client.cosmetics}
+
+📝 {client.notes}
+
+⭐ Статус: {client.status}
+
+🔄 Визитов: {client.visits}
+
+💰 Потрачено: {client.total_money} ₽
 """
+
+
+    db.close()
 
 
     if client.photo_id:
@@ -56,7 +73,5 @@ async def get_photo(
             text
         )
 
-
-    context.user_data.clear()
 
     return ConversationHandler.END
