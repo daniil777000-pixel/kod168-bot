@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 NAME, PHONE, BIRTHDAY, FAVORITE_CUT, COSMETIC, DISLIKES, NOTES = range(7)
 
 # Состояния для добавления визита
-VISIT_CLIENT, VISIT_SERVICE, VISIT_PRICE, VISIT_COMMENT, VISIT_PHOTO_BEFORE, VISIT_PHOTO_AFTER = range(6, 12)
+VISIT_CLIENT, VISIT_SERVICE, VISIT_PRICE, VISIT_COMMENT = range(7, 11)
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -43,50 +43,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Обратись к администратору для добавления.",
             parse_mode="Markdown"
         )
-
-async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    is_admin = context.user_data.get("is_admin", False)
-    keyboard = [
-        [InlineKeyboardButton("➕ Новый клиент", callback_data="add_client")],
-        [InlineKeyboardButton("🔍 Найти клиента", callback_data="search_client")],
-        [InlineKeyboardButton("👥 Мои клиенты", callback_data="my_clients")],
-        [InlineKeyboardButton("📅 Добавить визит", callback_data="add_visit")],
-        [InlineKeyboardButton("📊 Статистика", callback_data="statistics")],
-    ]
-    if is_admin:
-        keyboard.append([InlineKeyboardButton("👨‍🎨 Управление мастерами", callback_data="masters")])
-        keyboard.append([InlineKeyboardButton("⚙️ Настройки", callback_data="settings")])
-    
-    await update.message.reply_text(
-        "🔥 **KOD 168 CRM**\n\n"
-        "Выберите действие:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown"
-    )
-
-async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    data = query.data
-    
-    if data == "add_client":
-        await add_client_start(update, context)
-    elif data == "search_client":
-        await search_command(update, context)
-    elif data == "my_clients":
-        await clients_list(update, context)
-    elif data == "add_visit":
-        await add_visit_start(update, context)
-    elif data == "statistics":
-        await statistics_command(update, context)
-    elif data == "masters" and context.user_data.get("is_admin"):
-        await masters_menu(update, context)
-    elif data.startswith("client_"):
-        client_id = int(data.split("_")[1])
-        await show_client_card(update, context, client_id)
-    elif data.startswith("visit_history_"):
-        client_id = int(data.split("_")[2])
-        await visit_history(update, context, client_id)
 
 async def add_client_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.callback_query:
@@ -174,31 +130,38 @@ async def add_client_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["client_notes"] = update.message.text
     
     db = get_db()
-    client = Client()
-    client.name = context.user_data.get("client_name")
-    client.phone = context.user_data.get("client_phone")
-    client.birthday = context.user_data.get("client_birthday")
-    client.favorite_cut = context.user_data.get("client_cut")
-    client.favorite_cosmetic = context.user_data.get("client_cosmetic")
-    client.dislikes = context.user_data.get("client_dislikes")
-    client.notes = context.user_data.get("client_notes")
-    client.kod_id = client.generate_kod_id()
-    client.master_id = context.user_data.get("master_id")
-    client.status = "active"
     
-    db.add(client)
-    db.commit()
-    db.refresh(client)
-    db.close()
+    try:
+        client = Client()
+        client.name = context.user_data.get("client_name")
+        client.phone = context.user_data.get("client_phone")
+        client.birthday = context.user_data.get("client_birthday")
+        client.favorite_cut = context.user_data.get("client_cut")
+        client.favorite_cosmetic = context.user_data.get("client_cosmetic")
+        client.dislikes = context.user_data.get("client_dislikes")
+        client.notes = context.user_data.get("client_notes")
+        client.kod_id = client.generate_kod_id()
+        client.master_id = context.user_data.get("master_id")
+        client.status = "active"
+        
+        db.add(client)
+        db.commit()
+        db.refresh(client)
+        
+        await update.message.reply_text(
+            f"✅ **Клиент добавлен!**\n\n"
+            f"👤 Имя: {client.name}\n"
+            f"🆔 KOD ID: `{client.kod_id}`\n\n"
+            f"Используй /client {client.name} для просмотра карточки",
+            parse_mode="Markdown"
+        )
+        context.user_data.clear()
+    except Exception as e:
+        db.rollback()
+        await update.message.reply_text(f"❌ Ошибка при сохранении: {e}")
+    finally:
+        db.close()
     
-    await update.message.reply_text(
-        f"✅ **Клиент добавлен!**\n\n"
-        f"👤 Имя: {client.name}\n"
-        f"🆔 KOD ID: `{client.kod_id}`\n\n"
-        f"Используй /client {client.name} для просмотра карточки",
-        parse_mode="Markdown"
-    )
-    context.user_data.clear()
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -233,7 +196,6 @@ async def clients_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def show_client_card(update: Update, context: ContextTypes.DEFAULT_TYPE, client_id: int = None):
     if client_id is None:
-        # Если команда /client [имя]
         args = context.args
         if not args:
             await update.message.reply_text("❌ Укажите имя или KOD ID клиента.\nПример: `/client Александр`", parse_mode="Markdown")
@@ -257,7 +219,6 @@ async def show_client_card(update: Update, context: ContextTypes.DEFAULT_TYPE, c
         await update.message.reply_text("❌ Клиент не найден")
         return
     
-    # Статистика
     stats = get_client_statistics(client.id)
     
     text = f"""
@@ -396,37 +357,42 @@ async def add_visit_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         context.user_data["visit_comment"] = update.message.text
     
-    # Сохраняем визит
     db = get_db()
-    visit = Visit()
-    visit.client_id = context.user_data["visit_client_id"]
-    visit.service = context.user_data["visit_service"]
-    visit.price = context.user_data["visit_price"]
-    visit.comment = context.user_data.get("visit_comment")
-    visit.master_id = context.user_data.get("master_id")
     
-    db.add(visit)
-    db.commit()
+    try:
+        visit = Visit()
+        visit.client_id = context.user_data["visit_client_id"]
+        visit.service = context.user_data["visit_service"]
+        visit.price = context.user_data["visit_price"]
+        visit.comment = context.user_data.get("visit_comment")
+        visit.master_id = context.user_data.get("master_id")
+        
+        db.add(visit)
+        db.commit()
+        
+        client = db.query(Client).filter(Client.id == visit.client_id).first()
+        client.visits_count = (client.visits_count or 0) + 1
+        client.total_spent = (client.total_spent or 0) + visit.price
+        if client.total_spent > 5000:
+            client.status = "vip"
+        db.commit()
+        
+        await update.message.reply_text(
+            f"✅ **Визит добавлен!**\n\n"
+            f"👤 Клиент: {client.name}\n"
+            f"✂️ Услуга: {visit.service}\n"
+            f"💰 Цена: {visit.price} ₽\n"
+            f"📝 Комментарий: {visit.comment or 'Нет'}\n\n"
+            f"📊 Всего визитов: {client.visits_count}\n"
+            f"💰 Всего потрачено: {client.total_spent} ₽"
+        )
+        context.user_data.clear()
+    except Exception as e:
+        db.rollback()
+        await update.message.reply_text(f"❌ Ошибка при сохранении: {e}")
+    finally:
+        db.close()
     
-    # Обновляем клиента
-    client = db.query(Client).filter(Client.id == visit.client_id).first()
-    client.visits_count = (client.visits_count or 0) + 1
-    client.total_spent = (client.total_spent or 0) + visit.price
-    if client.total_spent > 5000:
-        client.status = "vip"
-    db.commit()
-    db.close()
-    
-    await update.message.reply_text(
-        f"✅ **Визит добавлен!**\n\n"
-        f"👤 Клиент: {client.name}\n"
-        f"✂️ Услуга: {visit.service}\n"
-        f"💰 Цена: {visit.price} ₽\n"
-        f"📝 Комментарий: {visit.comment or 'Нет'}\n\n"
-        f"📊 Всего визитов: {client.visits_count}\n"
-        f"💰 Всего потрачено: {client.total_spent} ₽"
-    )
-    context.user_data.clear()
     return ConversationHandler.END
 
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -463,14 +429,10 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def statistics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = get_db()
-    master_id = context.user_data.get("master_id")
-    
-    # Общая статистика
     total_clients = db.query(Client).count()
     total_visits = db.query(Visit).count()
     total_revenue = db.query(func.sum(Visit.price)).scalar() or 0
     
-    # Статистика мастера
     master_stats = db.query(
         Master.name,
         func.count(Client.id).label("clients"),
@@ -516,6 +478,50 @@ async def masters_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     
     await update.message.reply_text(text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    is_admin = context.user_data.get("is_admin", False)
+    keyboard = [
+        [InlineKeyboardButton("➕ Новый клиент", callback_data="add_client")],
+        [InlineKeyboardButton("🔍 Найти клиента", callback_data="search_client")],
+        [InlineKeyboardButton("👥 Мои клиенты", callback_data="my_clients")],
+        [InlineKeyboardButton("📅 Добавить визит", callback_data="add_visit")],
+        [InlineKeyboardButton("📊 Статистика", callback_data="statistics")],
+    ]
+    if is_admin:
+        keyboard.append([InlineKeyboardButton("👨‍🎨 Мастера", callback_data="masters")])
+        keyboard.append([InlineKeyboardButton("⚙️ Настройки", callback_data="settings")])
+    
+    await update.message.reply_text(
+        "🔥 **KOD 168 CRM**\n\n"
+        "Выберите действие:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown"
+    )
+
+async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    
+    if data == "add_client":
+        await add_client_start(update, context)
+    elif data == "search_client":
+        await search_command(update, context)
+    elif data == "my_clients":
+        await clients_list(update, context)
+    elif data == "add_visit":
+        await add_visit_start(update, context)
+    elif data == "statistics":
+        await statistics_command(update, context)
+    elif data == "masters" and context.user_data.get("is_admin"):
+        await masters_menu(update, context)
+    elif data.startswith("client_"):
+        client_id = int(data.split("_")[1])
+        await show_client_card(update, context, client_id)
+    elif data.startswith("visit_history_"):
+        client_id = int(data.split("_")[2])
+        await visit_history(update, context, client_id)
 
 def get_handlers():
     add_client_conv = ConversationHandler(
