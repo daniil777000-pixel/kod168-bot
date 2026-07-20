@@ -9,29 +9,28 @@ class Client(Base):
 
     id = Column(Integer, primary_key=True)
 
-    # Основная информация
+    # Основные данные
     name = Column(String, nullable=False)
-    phone = Column(String, unique=True)
+    phone = Column(String, unique=True, nullable=False)
 
-    # Фото клиента Telegram
-    photo_id = Column(String)
+    # Фото и идентификация
+    photo_id = Column(String, nullable=True)
+    client_code = Column(String, unique=True, nullable=True)
 
-    # Уникальный код клиента
-    client_code = Column(String, unique=True)
+    # Информация барбера
+    haircut = Column(String, nullable=True)
+    cosmetics = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
 
-    # Данные по стрижке
-    haircut = Column(String)
-    cosmetics = Column(String)
-
-    # Заметки мастера
-    notes = Column(Text)
-
-    # Статистика
+    # CRM статистика
     visits = Column(Integer, default=0)
     total_money = Column(Integer, default=0)
 
-    # Статус клиента
-    status = Column(String, default="Новый")
+    # Новый / Постоянный / VIP
+    status = Column(
+        String,
+        default="Новый"
+    )
 
     created_at = Column(
         DateTime,
