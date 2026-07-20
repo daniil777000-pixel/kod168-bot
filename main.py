@@ -1,57 +1,23 @@
 import logging
-import threading
-import os
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
 from config import BOT_TOKEN
-from app import app
 from database import create_tables
-from handlers import client, menu
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
+from handlers import client
 
-# Настройка логирования
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
-
-def run_flask():
-    """Запуск Flask сервера для Render"""
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+logging.basicConfig(level=logging.INFO)
 
 def main():
-    """Запуск бота"""
-    # Создаём таблицы при первом запуске
     create_tables()
-    logger.info("✅ База данных инициализирована")
+    print("✅ База данных готова")
     
-    # Запускаем Flask в отдельном потоке
-    flask_thread = threading.Thread(target=run_flask, daemon=True)
-    flask_thread.start()
-    logger.info(f"✅ Flask сервер запущен на порту {os.environ.get('PORT', 10000)}")
+    app = Application.builder().token(BOT_TOKEN).build()
     
-    # Настраиваем бота
-    application = Application.builder().token(BOT_TOKEN).build()
+    # Регистрируем все обработчики из client.py
+    for handler in client.get_handlers():
+        app.add_handler(handler)
     
-    # === ЗАГРУЖАЕМ ВСЕ ОБРАБОТЧИКИ ИЗ client.py ===
-    client_handlers = client.get_handlers()
-    for handler in client_handlers:
-        application.add_handler(handler)
-    logger.info(f"✅ Загружено {len(client_handlers)} обработчиков из client.py")
-    
-    # === ЗАГРУЖАЕМ ВСЕ ОБРАБОТЧИКИ ИЗ menu.py ===
-    menu_handlers = menu.get_menu_handlers()
-    for handler in menu_handlers:
-        application.add_handler(handler)
-    logger.info(f"✅ Загружено {len(menu_handlers)} обработчиков из menu.py")
-    
-    logger.info("✅ Все обработчики загружены")
-    logger.info("🤖 Бот запущен и готов к работе!")
-    
-    # Запускаем бота
-    application.run_polling(allowed_updates=["message", "callback_query"])
+    print("✅ Бот запущен!")
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
