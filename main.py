@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
-    ContextTypes
+    ContextTypes,
 )
 
 from config import BOT_TOKEN
@@ -17,10 +17,15 @@ from handlers.client import get_handlers
 
 
 logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 
 
+logger = logging.getLogger(__name__)
+
+
+# Создание таблиц
 Base.metadata.create_all(
     bind=engine
 )
@@ -31,21 +36,46 @@ async def start(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+    if not update.message:
+        return
+
     await update.message.reply_text(
-        "🔥 KOD 168 CRM BOT\n\n"
-        "Нажмите /menu для открытия панели"
+        "🔥 KOD 168 CRM\n\n"
+        "Добро пожаловать!\n\n"
+        "Открыть меню:\n"
+        "/menu"
+    )
+
+
+async def error_handler(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    logger.error(
+        "Ошибка:",
+        exc_info=context.error
     )
 
 
 def main():
 
-    app = Application.builder()\
-        .token(BOT_TOKEN)\
+    application = (
+        Application
+        .builder()
+        .token(BOT_TOKEN)
         .build()
+    )
 
 
-    # СТАРТ
-    app.add_handler(
+    # Ошибки
+    application.add_error_handler(
+        error_handler
+    )
+
+
+    # Старт
+    application.add_handler(
         CommandHandler(
             "start",
             start
@@ -53,23 +83,24 @@ def main():
     )
 
 
-    # СНАЧАЛА МЕНЮ
-    for handler in get_menu_handlers():
-        app.add_handler(handler)
-
-
-    # ПОТОМ CRM
+    # CRM ПЕРВЫМ
     for handler in get_handlers():
-        app.add_handler(handler)
+        application.add_handler(handler)
 
 
-    print(
+    # МЕНЮ ПОСЛЕДНИМ
+    for handler in get_menu_handlers():
+        application.add_handler(handler)
+
+
+    logger.info(
         "🔥 KOD 168 CRM ONLINE"
     )
 
 
-    app.run_polling()
-
+    application.run_polling(
+        drop_pending_updates=True
+    )
 
 
 if __name__ == "__main__":
