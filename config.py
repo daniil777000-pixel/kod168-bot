@@ -1,5 +1,5 @@
 BOT_TOKEN ="8723349282:AAGWKRmCTIkELTcUxK7bQnvcNmtIzQJGZy0"
 
-ADMIN_ID = 0
+ADMIN_ID =0 
 
-DATABASE_URL = "sqlite:///kod168.db"
+DATABASE_URL ="sqlite:///kod168.db"
