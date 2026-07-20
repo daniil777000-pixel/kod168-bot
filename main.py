@@ -1,5 +1,4 @@
 import logging
-import threading
 
 from telegram import Update
 from telegram.ext import (
@@ -8,12 +7,13 @@ from telegram.ext import (
     ContextTypes
 )
 
-from flask import Flask
-
 from config import BOT_TOKEN
+
 from database import engine
 from models import Base
+
 from handlers.client import get_handlers
+from handlers.menu import get_menu_handlers
 
 
 logging.basicConfig(
@@ -21,55 +21,33 @@ logging.basicConfig(
 )
 
 
-# Создание базы
+# Создание таблиц базы
 Base.metadata.create_all(
     bind=engine
 )
-
-
-# Flask для Render
-web_app = Flask(__name__)
-
-
-@web_app.route("/")
-def home():
-    return "KOD 168 CRM BOT ONLINE 🔥"
-
-
-@web_app.route("/health")
-def health():
-    return {
-        "status": "ok",
-        "project": "KOD 168 CRM"
-    }
-
-
-def run_web():
-    web_app.run(
-        host="0.0.0.0",
-        port=10000
-    )
 
 
 async def start(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
+
     await update.message.reply_text(
-        "🔥 KOD 168 CRM BOT запущен\n\n"
-        "Команды:\n"
-        "/add — добавить клиента\n"
-        "/clients — список клиентов"
+        "🔥 KOD 168 CRM BOT\n\n"
+        "Добро пожаловать!\n\n"
+        "Используйте меню:\n"
+        "/menu"
     )
 
 
-def run_bot():
+def main():
 
-    app = Application.builder().token(
-        BOT_TOKEN
-    ).build()
+    app = Application.builder() \
+        .token(BOT_TOKEN) \
+        .build()
 
 
+    # Старт
     app.add_handler(
         CommandHandler(
             "start",
@@ -78,28 +56,23 @@ def run_bot():
     )
 
 
+    # Клиенты
     for handler in get_handlers():
         app.add_handler(handler)
 
 
+    # Меню
+    for handler in get_menu_handlers():
+        app.add_handler(handler)
+
+
     print(
-        "🔥 KOD 168 BOT STARTED"
+        "🔥 KOD 168 CRM BOT STARTED"
     )
 
 
     app.run_polling()
 
-
-def main():
-
-    # запускаем сайт для Render
-    threading.Thread(
-        target=run_web
-    ).start()
-
-
-    # запускаем Telegram
-    run_bot()
 
 
 if __name__ == "__main__":
