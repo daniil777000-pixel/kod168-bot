@@ -1,10 +1,5 @@
-import os
-from dotenv import load_dotenv
+BOT_TOKEN = 8723349282:AAGWKRmCTIkELTcUxK7bQnvcNmtIzQJGZy0
 
-load_dotenv()
-
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-
-ADMIN_ID = int(os.getenv("ADMIN_ID", 0))
+ADMIN_ID = 0
 
 DATABASE_URL = "sqlite:///kod168.db"
