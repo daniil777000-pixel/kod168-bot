@@ -1,39 +1,40 @@
-from database import get_db
-from models import Master
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text
+from sqlalchemy.orm import declarative_base
+from datetime import datetime
 
-def add_master_if_not_exists():
-    db = get_db()
-    master = db.query(Master).filter(Master.telegram_id == 7161907994).first()
-    if not master:
-        new_master = Master(telegram_id=7161907994, name="Даня", is_admin=1)
-        db.add(new_master)
-        db.commit()
-        print("✅ Мастер Даня добавлен!")
-    else:
-        print("✅ Мастер уже существует")
-    db.close()
+Base = declarative_base()
 
-add_master_if_not_exists()
-
-import logging
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
-from config import BOT_TOKEN
-from database import create_tables
-from handlers import client
-
-logging.basicConfig(level=logging.INFO)
-
-def main():
-    create_tables()
-    print("✅ База данных готова")
+class Client(Base):
+    __tablename__ = "clients"
     
-    app = Application.builder().token(BOT_TOKEN).build()
-    
-    for handler in client.get_handlers():
-        app.add_handler(handler)
-    
-    print("✅ Бот запущен!")
-    app.run_polling()
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100))
+    phone = Column(String(20), nullable=True)
+    birthday = Column(String(10), nullable=True)
+    favorite_cut = Column(String(200), nullable=True)
+    favorite_cosmetic = Column(String(200), nullable=True)
+    dislikes = Column(String(200), nullable=True)
+    notes = Column(Text, nullable=True)
+    photo = Column(String(500), nullable=True)
+    kod_id = Column(String(50), unique=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    total_spent = Column(Float, default=0)
+    visits_count = Column(Integer, default=0)
 
-if __name__ == "__main__":
-    main()
+class Visit(Base):
+    __tablename__ = "visits"
+    
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer)
+    service = Column(String(100))
+    price = Column(Float)
+    date = Column(DateTime, default=datetime.utcnow)
+
+class Master(Base):
+    __tablename__ = "masters"
+    
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(Integer, unique=True, nullable=False)
+    name = Column(String(100))
+    is_admin = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
