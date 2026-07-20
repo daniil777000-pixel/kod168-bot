@@ -1,83 +1,143 @@
 from telegram import Update
 from telegram.ext import (
     CommandHandler,
-    ContextTypes
+    ConversationHandler,
+    MessageHandler,
+    ContextTypes,
+    filters
 )
 
 from database import get_db
 from models import Client
 
 
-async def add_client(
+NAME, PHONE, HAIRCUT, NOTES = range(4)
+
+
+async def add_start(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    args = context.args
+    await update.message.reply_text(
+        "👤 Введите имя клиента:"
+    )
 
-    if not args:
-        await update.message.reply_text(
-            "Используй:\n"
-            "/add Имя клиента"
-        )
-        return
+    return NAME
 
-    name = " ".join(args)
+
+async def get_name(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    context.user_data["name"] = update.message.text
+
+    await update.message.reply_text(
+        "📱 Введите телефон клиента:"
+    )
+
+    return PHONE
+
+
+async def get_phone(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    context.user_data["phone"] = update.message.text
+
+    await update.message.reply_text(
+        "✂️ Какая любимая стрижка?"
+    )
+
+    return HAIRCUT
+
+
+async def get_haircut(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    context.user_data["haircut"] = update.message.text
+
+    await update.message.reply_text(
+        "📝 Добавьте заметки мастера:"
+    )
+
+    return NOTES
+
+
+async def get_notes(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    context.user_data["notes"] = update.message.text
 
     db = get_db()
 
     client = Client(
-        name=name
+        name=context.user_data["name"],
+        phone=context.user_data["phone"],
+        haircut=context.user_data["haircut"],
+        notes=context.user_data["notes"]
     )
 
     db.add(client)
     db.commit()
-
     db.close()
 
     await update.message.reply_text(
-        f"✅ Клиент добавлен:\n{name}"
+        "✅ Клиент сохранён в CRM КОД 168"
     )
 
-
-async def clients(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    db = get_db()
-
-    users = db.query(Client).all()
-
-    if not users:
-        await update.message.reply_text(
-            "Клиентов пока нет."
-        )
-        db.close()
-        return
-
-    text = "👤 Клиенты:\n\n"
-
-    for user in users:
-        text += f"• {user.name}\n"
-
-    db.close()
-
-    await update.message.reply_text(
-        text
-    )
+    return ConversationHandler.END
 
 
 def get_handlers():
 
     return [
-        CommandHandler(
-            "add",
-            add_client
-        ),
 
-        CommandHandler(
-            "clients",
-            clients
+        ConversationHandler(
+            entry_points=[
+                CommandHandler(
+                    "add",
+                    add_start
+                )
+            ],
+
+            states={
+
+                NAME: [
+                    MessageHandler(
+                        filters.TEXT & ~filters.COMMAND,
+                        get_name
+                    )
+                ],
+
+                PHONE: [
+                    MessageHandler(
+                        filters.TEXT & ~filters.COMMAND,
+                        get_phone
+                    )
+                ],
+
+                HAIRCUT: [
+                    MessageHandler(
+                        filters.TEXT & ~filters.COMMAND,
+                        get_haircut
+                    )
+                ],
+
+                NOTES: [
+                    MessageHandler(
+                        filters.TEXT & ~filters.COMMAND,
+                        get_notes
+                    )
+                ]
+            },
+
+            fallbacks=[]
         )
     ]
