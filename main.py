@@ -38,7 +38,7 @@ def main():
     # Добавляем все обработчики
     all_handlers = []
     all_handlers.extend(client.get_handlers())
-    all_handlers.extend(menu.get_menu_handlers())  # Исправлено!
+    all_handlers.extend(menu.get_menu_handlers())
     
     for handler in all_handlers:
         application.add_handler(handler)
