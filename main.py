@@ -1,7 +1,7 @@
 import logging
 import threading
 import os
-from telegram.ext import Application
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
 from config import BOT_TOKEN
 from app import app
 from database import create_tables
@@ -35,13 +35,17 @@ def main():
     # Настраиваем бота
     application = Application.builder().token(BOT_TOKEN).build()
     
-    # Добавляем все обработчики
-    all_handlers = []
-    all_handlers.extend(client.get_handlers())
-    all_handlers.extend(menu.get_menu_handlers())
-    
-    for handler in all_handlers:
+    # === ЗАГРУЖАЕМ ВСЕ ОБРАБОТЧИКИ ИЗ client.py ===
+    client_handlers = client.get_handlers()
+    for handler in client_handlers:
         application.add_handler(handler)
+    logger.info(f"✅ Загружено {len(client_handlers)} обработчиков из client.py")
+    
+    # === ЗАГРУЖАЕМ ВСЕ ОБРАБОТЧИКИ ИЗ menu.py ===
+    menu_handlers = menu.get_menu_handlers()
+    for handler in menu_handlers:
+        application.add_handler(handler)
+    logger.info(f"✅ Загружено {len(menu_handlers)} обработчиков из menu.py")
     
     logger.info("✅ Все обработчики загружены")
     logger.info("🤖 Бот запущен и готов к работе!")
