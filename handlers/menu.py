@@ -35,7 +35,6 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     callback_data = query.data
     
-    # Обрабатываем каждую кнопку
     if callback_data == "menu_add_client":
         await query.edit_message_text(
             "➕ **Добавление клиента**\n\n"
@@ -133,8 +132,6 @@ def get_menu_handlers():
     """Возвращает обработчики для меню"""
     return [
         CommandHandler("menu", menu_command),
-        # Обработчик для всех кнопок меню с префиксом "menu_"
         CallbackQueryHandler(menu_callback, pattern="^menu_"),
-        # Обработчик для кнопки "Назад"
         CallbackQueryHandler(back_to_menu, pattern="^back_to_menu$"),
-    
+    ]
