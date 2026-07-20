@@ -7,8 +7,10 @@ from models import Client, Visit
 
 logging.basicConfig(level=logging.INFO)
 
-# Состояния для добавления клиента
+# Состояния
 NAME, PHONE, BIRTHDAY, FAVORITE_CUT, COSMETIC, DISLIKES, NOTES, PHOTO = range(8)
+VISIT_SERVICE, VISIT_PRICE = range(8, 10)
+SEARCH = 10
 
 # ==================== ГЛАВНОЕ МЕНЮ ====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -19,8 +21,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📊 Статистика", callback_data="menu_stats")],
     ]
     await update.message.reply_text(
-        "🔥 **KOD 168 CRM**\n\n"
-        "Выберите действие:",
+        "🔥 **KOD 168 CRM**\n\nВыберите действие:",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="Markdown"
     )
@@ -41,31 +42,26 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith("client_"):
         client_id = int(data.split("_")[1])
         await show_client_card(update, context, client_id)
-    elif data.startswith("visit_"):
-        client_id = int(data.split("_")[1])
-        await add_visit_start(update, context, client_id)
+    elif data == "back_to_menu":
+        await start(update, context)
 
 # ==================== ДОБАВЛЕНИЕ КЛИЕНТА ====================
 async def add_client_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.callback_query:
         await update.callback_query.message.reply_text(
-            "📝 **Добавление клиента**\n\n"
-            "✏️ Введите ИМЯ клиента:"
+            "📝 **Добавление клиента**\n\n✏️ Введите ИМЯ клиента:"
         )
         return NAME
     else:
         await update.message.reply_text(
-            "📝 **Добавление клиента**\n\n"
-            "✏️ Введите ИМЯ клиента:"
+            "📝 **Добавление клиента**\n\n✏️ Введите ИМЯ клиента:"
         )
         return NAME
 
 async def add_client_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['name'] = update.message.text
     await update.message.reply_text(
-        f"✅ Имя: {update.message.text}\n\n"
-        "📱 Введите ТЕЛЕФОН клиента:\n"
-        "(например: +79991234567 или пропустите /skip)"
+        f"✅ Имя: {update.message.text}\n\n📱 Введите ТЕЛЕФОН клиента:\n(например: +79991234567 или /skip)"
     )
     return PHONE
 
@@ -75,8 +71,7 @@ async def add_client_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         context.user_data['phone'] = update.message.text
     await update.message.reply_text(
-        "🎂 Введите ДАТУ РОЖДЕНИЯ (ДД.ММ):\n"
-        "(или /skip)"
+        "🎂 ДАТА РОЖДЕНИЯ (ДД.ММ):\n(или /skip)"
     )
     return BIRTHDAY
 
@@ -86,8 +81,7 @@ async def add_client_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE
     else:
         context.user_data['birthday'] = update.message.text
     await update.message.reply_text(
-        "✂️ Любимая стрижка:\n"
-        "(или /skip)"
+        "✂️ Любимая стрижка:\n(или /skip)"
     )
     return FAVORITE_CUT
 
@@ -97,8 +91,7 @@ async def add_client_cut(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         context.user_data['cut'] = update.message.text
     await update.message.reply_text(
-        "🧴 Любимая косметика:\n"
-        "(или /skip)"
+        "🧴 Любимая косметика:\n(или /skip)"
     )
     return COSMETIC
 
@@ -108,8 +101,7 @@ async def add_client_cosmetic(update: Update, context: ContextTypes.DEFAULT_TYPE
     else:
         context.user_data['cosmetic'] = update.message.text
     await update.message.reply_text(
-        "❌ Что НЕ ЛЮБИТ клиент:\n"
-        "(или /skip)"
+        "❌ Что НЕ ЛЮБИТ клиент:\n(или /skip)"
     )
     return DISLIKES
 
@@ -119,8 +111,7 @@ async def add_client_dislikes(update: Update, context: ContextTypes.DEFAULT_TYPE
     else:
         context.user_data['dislikes'] = update.message.text
     await update.message.reply_text(
-        "📝 Заметки мастера:\n"
-        "(или /skip)"
+        "📝 Заметки мастера:\n(или /skip)"
     )
     return NOTES
 
@@ -130,8 +121,7 @@ async def add_client_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         context.user_data['notes'] = update.message.text
     await update.message.reply_text(
-        "📸 Теперь отправьте ФОТО клиента\n"
-        "(или нажмите /skip)"
+        "📸 Отправьте ФОТО клиента\n(или /skip)"
     )
     return PHOTO
 
@@ -146,7 +136,6 @@ async def add_client_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     context.user_data['photo'] = photo_id
     
-    # СОХРАНЯЕМ
     db = get_db()
     client = Client()
     client.name = context.user_data.get('name', 'Без имени')
@@ -164,7 +153,6 @@ async def add_client_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.refresh(client)
     db.close()
     
-    # ПОКАЗЫВАЕМ КАРТОЧКУ
     await show_client_card(update, context, client.id)
     context.user_data.clear()
     return ConversationHandler.END
@@ -180,7 +168,6 @@ async def show_client_card(update: Update, context: ContextTypes.DEFAULT_TYPE, c
         await update.message.reply_text("❌ Клиент не найден")
         return
     
-    # Собираем информацию
     text = f"👤 **{client.name}**\n"
     text += f"🆔 KOD ID: `{client.kod_id}`\n"
     text += f"📱 Телефон: {client.phone or 'Не указан'}\n"
@@ -195,22 +182,19 @@ async def show_client_card(update: Update, context: ContextTypes.DEFAULT_TYPE, c
     if client.notes:
         text += f"📝 Заметки: {client.notes}\n"
     
-    # Последние визиты
     if visits:
         text += "\n📋 **Последние визиты:**\n"
         for v in visits[:3]:
             text += f"• {v.date.strftime('%d.%m')} — {v.service} ({v.price}₽)\n"
     
-    # КНОПКИ
     keyboard = [
         [InlineKeyboardButton("📅 Добавить визит", callback_data=f"visit_{client.id}")],
         [InlineKeyboardButton("🔄 Обновить фото", callback_data=f"photo_{client.id}")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="menu_list")],
+        [InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")],
     ]
     
-    # Отправляем
-    if client.photo:
-        if update.callback_query:
+    if update.callback_query:
+        if client.photo:
             await update.callback_query.message.reply_photo(
                 photo=client.photo,
                 caption=text,
@@ -218,16 +202,16 @@ async def show_client_card(update: Update, context: ContextTypes.DEFAULT_TYPE, c
                 parse_mode="Markdown"
             )
         else:
-            await update.message.reply_photo(
-                photo=client.photo,
-                caption=text,
+            await update.callback_query.message.reply_text(
+                text,
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode="Markdown"
             )
     else:
-        if update.callback_query:
-            await update.callback_query.message.reply_text(
-                text,
+        if client.photo:
+            await update.message.reply_photo(
+                photo=client.photo,
+                caption=text,
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode="Markdown"
             )
@@ -242,15 +226,14 @@ async def show_client_card(update: Update, context: ContextTypes.DEFAULT_TYPE, c
 async def add_visit_start(update: Update, context: ContextTypes.DEFAULT_TYPE, client_id: int):
     context.user_data['visit_client_id'] = client_id
     await update.callback_query.message.reply_text(
-        "📅 **Добавление визита**\n\n"
-        "✂️ Введите УСЛУГУ:"
+        "📅 **Добавление визита**\n\n✂️ Введите УСЛУГУ:"
     )
-    return 10  # VISIT_SERVICE
+    return VISIT_SERVICE
 
 async def add_visit_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['visit_service'] = update.message.text
     await update.message.reply_text("💰 Введите ЦЕНУ (в рублях):")
-    return 11  # VISIT_PRICE
+    return VISIT_PRICE
 
 async def add_visit_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -263,7 +246,6 @@ async def add_visit_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
         visit.service = context.user_data['visit_service']
         visit.price = price
         
-        # Обновляем клиента
         client = db.query(Client).filter(Client.id == visit.client_id).first()
         client.visits_count = (client.visits_count or 0) + 1
         client.total_spent = (client.total_spent or 0) + price
@@ -273,29 +255,29 @@ async def add_visit_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.close()
         
         await update.message.reply_text(
-            f"✅ **Визит добавлен!**\n\n"
-            f"✂️ {visit.service}\n"
-            f"💰 {price} ₽\n"
-            f"📊 Всего визитов: {client.visits_count}\n"
-            f"💰 Всего потрачено: {client.total_spent} ₽"
+            f"✅ **Визит добавлен!**\n\n✂️ {visit.service}\n💰 {price} ₽\n📊 Всего визитов: {client.visits_count}\n💰 Всего потрачено: {client.total_spent} ₽"
         )
         
-        # Показываем карточку
         await show_client_card(update, context, client.id)
         context.user_data.clear()
         return ConversationHandler.END
         
     except:
         await update.message.reply_text("❌ Введите корректную цену (число):")
-        return 11
+        return VISIT_PRICE
 
 # ==================== ПОИСК КЛИЕНТА ====================
 async def find_client_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.message.reply_text(
-        "🔍 **Поиск клиента**\n\n"
-        "✏️ Введите имя или телефон:"
-    )
-    return 20  # SEARCH
+    if update.callback_query:
+        await update.callback_query.message.reply_text(
+            "🔍 **Поиск клиента**\n\n✏️ Введите имя или телефон:"
+        )
+        return SEARCH
+    else:
+        await update.message.reply_text(
+            "🔍 **Поиск клиента**\n\n✏️ Введите имя или телефон:"
+        )
+        return SEARCH
 
 async def find_client_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.message.text
@@ -312,7 +294,7 @@ async def find_client_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = []
     for c in clients:
         keyboard.append([InlineKeyboardButton(f"{c.name} 📱{c.phone or ''}", callback_data=f"client_{c.id}")])
-    keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="menu_list")])
+    keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")])
     
     await update.message.reply_text(
         f"🔍 **Найдено {len(clients)} клиентов:**",
@@ -363,7 +345,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text += f"📅 Всего визитов: {total_visits}\n"
     text += f"💰 Общая выручка: {total_revenue:.0f} ₽\n"
     
-    keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="menu_list")]]
+    keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")]]
     
     if update.callback_query:
         await update.callback_query.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
@@ -395,7 +377,6 @@ def get_handlers():
             PHOTO: [
                 MessageHandler(filters.PHOTO, add_client_photo),
                 CommandHandler("skip", add_client_photo),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, add_client_photo)
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
@@ -404,9 +385,12 @@ def get_handlers():
     
     # ConversationHandler для поиска
     find_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(find_client_start, pattern="^menu_find$")],
+        entry_points=[
+            CommandHandler("find", find_client_start),
+            CallbackQueryHandler(find_client_start, pattern="^menu_find$")
+        ],
         states={
-            20: [MessageHandler(filters.TEXT & ~filters.COMMAND, find_client_query)],
+            SEARCH: [MessageHandler(filters.TEXT & ~filters.COMMAND, find_client_query)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
         name="find_client"
@@ -416,8 +400,8 @@ def get_handlers():
     visit_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(add_visit_start, pattern="^visit_")],
         states={
-            10: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_visit_service)],
-            11: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_visit_price)],
+            VISIT_SERVICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_visit_service)],
+            VISIT_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_visit_price)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
         name="add_visit"
@@ -430,6 +414,6 @@ def get_handlers():
         find_conv,
         visit_conv,
         CallbackQueryHandler(menu_callback, pattern="^menu_"),
-        CallbackQueryHandler(show_client_card, pattern="^client_"),
-        CallbackQueryHandler(clients_list, pattern="^menu_list$"),
+        CallbackQueryHandler(menu_callback, pattern="^client_"),
+        CallbackQueryHandler(menu_callback, pattern="^back_to_menu$"),
     ]
