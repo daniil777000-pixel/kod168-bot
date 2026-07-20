@@ -1,107 +1,54 @@
 import logging
-
-from telegram import Update
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    ContextTypes,
-)
-
+import threading
+import os
+from telegram.ext import Application
 from config import BOT_TOKEN
+from app import app
+from database import create_tables
+from handlers import client, menu
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-from database import engine
-from models import Base
-
-from handlers.menu import get_menu_handlers
-from handlers.client import get_handlers
-
-
+# Настройка логирования
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
-
-
 logger = logging.getLogger(__name__)
 
-
-# Создание таблиц
-Base.metadata.create_all(
-    bind=engine
-)
-
-
-async def start(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not update.message:
-        return
-
-    await update.message.reply_text(
-        "🔥 KOD 168 CRM\n\n"
-        "Добро пожаловать!\n\n"
-        "Открыть меню:\n"
-        "/menu"
-    )
-
-
-async def error_handler(
-    update: object,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    logger.error(
-        "Ошибка:",
-        exc_info=context.error
-    )
-
+def run_flask():
+    """Запуск Flask сервера для Render"""
+    port = int(os.environ.get("PORT", 10000))
+    # Убедись, что app.run вызывается с правильными параметрами
+    app.run(host="0.0.0.0", port=port)
 
 def main():
+    """Запуск бота"""
+    # Создаём таблицы при первом запуске
+    create_tables()
+    logger.info("✅ База данных инициализирована")
 
-    application = (
-        Application
-        .builder()
-        .token(BOT_TOKEN)
-        .build()
-    )
+    # Запускаем Flask в отдельном потоке
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    logger.info(f"✅ Flask сервер запущен на порту {os.environ.get('PORT', 10000)}")
 
+    # Настраиваем бота
+    application = Application.builder().token(BOT_TOKEN).build()
 
-    # Ошибки
-    application.add_error_handler(
-        error_handler
-    )
+    # Добавляем все обработчики
+    all_handlers = []
+    all_handlers.extend(client.get_handlers())
+    all_handlers.extend(menu.get_handlers())
 
-
-    # Старт
-    application.add_handler(
-        CommandHandler(
-            "start",
-            start
-        )
-    )
-
-
-    # CRM ПЕРВЫМ
-    for handler in get_handlers():
+    for handler in all_handlers:
         application.add_handler(handler)
 
+    logger.info("✅ Все обработчики загружены")
+    logger.info("🤖 Бот запущен и готов к работе!")
 
-    # МЕНЮ ПОСЛЕДНИМ
-    for handler in get_menu_handlers():
-        application.add_handler(handler)
-
-
-    logger.info(
-        "🔥 KOD 168 CRM ONLINE"
-    )
-
-
-    application.run_polling(
-        drop_pending_updates=True
-    )
-
+    # Запускаем бота
+    application.run_polling(allowed_updates=["message", "callback_query"])
 
 if __name__ == "__main__":
     main()
