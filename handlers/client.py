@@ -95,6 +95,39 @@ async def get_notes(
     return ConversationHandler.END
 
 
+async def clients(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    db = get_db()
+
+    users = db.query(Client).all()
+
+    if not users:
+
+        await update.message.reply_text(
+            "👥 Клиентов пока нет."
+        )
+
+        db.close()
+        return
+
+
+    text = "👥 Клиенты КОД 168:\n\n"
+
+    for number, user in enumerate(users, start=1):
+
+        text += f"{number}. {user.name}\n"
+
+
+    db.close()
+
+    await update.message.reply_text(
+        text
+    )
+
+
 def get_handlers():
 
     return [
@@ -136,8 +169,14 @@ def get_handlers():
                         get_notes
                     )
                 ]
+
             },
 
             fallbacks=[]
+        ),
+
+        CommandHandler(
+            "clients",
+            clients
         )
     ]
