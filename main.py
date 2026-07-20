@@ -1,4 +1,5 @@
 import logging
+
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -7,10 +8,18 @@ from telegram.ext import (
 )
 
 from config import BOT_TOKEN
+from database import engine
+from models import Base
+from handlers.client import get_handlers
 
 
 logging.basicConfig(
     level=logging.INFO
+)
+
+
+Base.metadata.create_all(
+    bind=engine
 )
 
 
@@ -20,7 +29,8 @@ async def start(
 ):
     await update.message.reply_text(
         "🔥 KOD 168 CRM BOT запущен\n\n"
-        "Система готова к работе."
+        "Команды:\n"
+        "/add Имя — добавить клиента"
     )
 
 
@@ -30,6 +40,7 @@ def main():
         BOT_TOKEN
     ).build()
 
+
     app.add_handler(
         CommandHandler(
             "start",
@@ -37,9 +48,15 @@ def main():
         )
     )
 
+
+    for handler in get_handlers():
+        app.add_handler(handler)
+
+
     print(
         "KOD 168 BOT STARTED"
     )
+
 
     app.run_polling()
 
